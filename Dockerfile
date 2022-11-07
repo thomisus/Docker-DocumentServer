@@ -100,4 +100,6 @@ RUN PACKAGE_FILE="${COMPANY_NAME}-${PRODUCT_NAME}${PRODUCT_EDITION}${PACKAGE_VER
 
 VOLUME /var/log/$COMPANY_NAME /var/lib/$COMPANY_NAME /var/www/$COMPANY_NAME/Data /var/lib/postgresql /var/lib/rabbitmq /var/lib/redis /usr/share/fonts/truetype/custom
 
-ENTRYPOINT ["/app/ds/run-document-server.sh"]
+
+ENTRYPOINT ["sed -i 's/isSupportEditFeature=function(){return!1}/isSupportEditFeature=function(){return 1}/g'  /var/www/onlyoffice/documentserver/web-apps/apps/*/mobile/dist/js/app.js;/app/ds/run-document-server.sh;"]
+#ENTRYPOINT ["/app/ds/run-document-server.sh"]
