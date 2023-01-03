@@ -3,7 +3,7 @@ services:
   onlyoffice-documentserver:
     build:
       context: .
-    container_name: onlyoffice-documentserver
+    container_name: ghcr.io/thomisus/onlyoffice-documentserver-unlimited:7.2.2
     depends_on:
       - onlyoffice-postgresql
       - onlyoffice-rabbitmq
