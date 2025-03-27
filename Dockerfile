@@ -20,7 +20,7 @@ ENV OC_RU_REVISION_VER=0
 ENV OC_RESERVED_NUM=0
 ENV OC_RU_DATE=0
 ENV OC_PATH=${OC_RELEASE_NUM}${OC_RU_VER}000
-ENV OC_FILE_SUFFIX=${OC_RELEASE_NUM}.${OC_RU_VER}.${OC_RU_REVISION_VER}.${OC_RESERVED_NUM}.${OC_RU_DATE}${OC_FILE_SUFFIX}dbru
+ENV OC_FILE_SUFFIX=${OC_RELEASE_NUM}.${OC_RU_VER}.${OC_RU_REVISION_VER}.${OC_RESERVED_NUM}.${OC_RU_DATE}dbru
 ENV OC_VER_DIR=${OC_RELEASE_NUM}_${OC_RU_VER}
 ENV OC_DOWNLOAD_URL=https://download.oracle.com/otn_software/linux/instantclient/${OC_PATH}
 
@@ -137,7 +137,7 @@ RUN    wget -q -P /tmp "https://github.com/thomisus/server/releases/download/${O
     printf "\nGO" >> /var/www/$COMPANY_NAME/documentserver/server/schema/mssql/removetbl.sql && \
     printf "\nexit" >> /var/www/$COMPANY_NAME/documentserver/server/schema/oracle/createdb.sql && \
     printf "\nexit" >> /var/www/$COMPANY_NAME/documentserver/server/schema/oracle/removetbl.sql && \
-    rm -f /tmp/$PACKAGE_FILE && \
+#    rm -f /tmp/$PACKAGE_FILE && \
     rm -rf /var/log/$COMPANY_NAME && \
     rm -rf /var/lib/apt/lists/*
 
