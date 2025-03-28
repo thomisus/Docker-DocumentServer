@@ -137,7 +137,7 @@ RUN    wget -q -P /tmp "https://github.com/thomisus/server/releases/download/${O
     printf "\nGO" >> /var/www/$COMPANY_NAME/documentserver/server/schema/mssql/removetbl.sql && \
     printf "\nexit" >> /var/www/$COMPANY_NAME/documentserver/server/schema/oracle/createdb.sql && \
     printf "\nexit" >> /var/www/$COMPANY_NAME/documentserver/server/schema/oracle/removetbl.sql && \
-    rm -f /tmp/$PACKAGE_FILE && \
+    rm -f /tmp/*.deb && \
     rm -rf /var/log/$COMPANY_NAME && \
     rm -rf /var/lib/apt/lists/*
 
