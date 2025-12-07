@@ -10,7 +10,7 @@ ARG BASE_VERSION
 ARG PG_VERSION=16
 ARG PACKAGE_SUFFIX=t64
 
-ARG OOU_VERSION_MAJOR=9.1.0
+ARG OOU_VERSION_MAJOR=9.2.0
 ARG OOU_BUILD=1
 
 ENV OC_RELEASE_NUM=23
@@ -123,7 +123,7 @@ ENV COMPANY_NAME=$COMPANY_NAME \
 ## PACKAGE_FILE="${COMPANY_NAME}-${PRODUCT_NAME}${PRODUCT_EDITION}${PACKAGE_VERSION:+_$PACKAGE_VERSION}_${TARGETARCH:-$(dpkg --print-architecture)}.deb" && \
 ##    wget -q -P /tmp "$PACKAGE_BASEURL/$PACKAGE_FILE" && \
 ##    rm -f /tmp/onlyoffice-documentserver*.deb && \
-RUN    wget -q -P /tmp "https://github.com/thomisus/server/releases/download/${OOU_VERSION_MAJOR}.${OOU_BUILD}/onlyoffice-documentserver_${OOU_VERSION_MAJOR}-${OOU_BUILD}.oou_amd64.deb" && \
+RUN    wget -q -P /tmp "https://github.com/forevka/server/releases/download/${OOU_VERSION_MAJOR}.${OOU_BUILD}/onlyoffice-documentserver_${OOU_VERSION_MAJOR}-${OOU_BUILD}.oou_amd64.deb" && \
     apt-get -y update && \
     service postgresql start && \
     apt-get -yq install /tmp/onlyoffice-documentserver_${OOU_VERSION_MAJOR}-${OOU_BUILD}.oou_amd64.deb && \
