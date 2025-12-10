@@ -10,7 +10,7 @@ ARG BASE_VERSION
 ARG PG_VERSION=16
 ARG PACKAGE_SUFFIX=t64
 
-ARG OOU_VERSION_MAJOR=9.1.0
+ARG OOU_VERSION_MAJOR=9.2.0
 ARG OOU_BUILD=1
 
 ENV OC_RELEASE_NUM=23
@@ -26,6 +26,7 @@ ENV OC_DOWNLOAD_URL=https://download.oracle.com/otn_software/linux/instantclient
 ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8 DEBIAN_FRONTEND=noninteractive PG_VERSION=${PG_VERSION} BASE_VERSION=${BASE_VERSION}
 
 ARG ONLYOFFICE_VALUE=onlyoffice
+COPY fonts/ /usr/share/fonts/truetype/
 
 RUN echo "#!/bin/sh\nexit 0" > /usr/sbin/policy-rc.d && \
     apt-get -y update && \
@@ -78,7 +79,7 @@ RUN echo "#!/bin/sh\nexit 0" > /usr/sbin/policy-rc.d && \
         xxd \
         zlib1g || dpkg --configure -a && \
     # Added dpkg --configure -a to handle installation issues with rabbitmq-server on arm64 architecture
-    if [  $(ls -l /usr/share/fonts/truetype/msttcorefonts | wc -l) -ne 61 ]; \
+    if [  $(find /usr/share/fonts/truetype/msttcorefonts -maxdepth 1 -type f -iname '*.ttf' | wc -l) -lt 30 ]; \
         then echo 'msttcorefonts failed to download'; exit 1; fi  && \
     echo "SERVER_ADDITIONAL_ERL_ARGS=\"+S 1:1\"" | tee -a /etc/rabbitmq/rabbitmq-env.conf && \
     sed -i "s/bind .*/bind 127.0.0.1/g" /etc/redis/redis.conf && \
@@ -127,6 +128,8 @@ RUN    wget -q -P /tmp "https://github.com/thomisus/server/releases/download/${O
     apt-get -y update && \
     service postgresql start && \
     apt-get -yq install /tmp/onlyoffice-documentserver_${OOU_VERSION_MAJOR}-${OOU_BUILD}.oou_amd64.deb && \
+    PGPASSWORD=$ONLYOFFICE_VALUE dropdb -h localhost -p 5432 -U $ONLYOFFICE_VALUE $ONLYOFFICE_VALUE && \
+    sudo -u postgres psql -c "DROP ROLE onlyoffice;" && \
     service postgresql stop && \
     chmod 755 /etc/init.d/supervisor && \
     sed "s/COMPANY_NAME/${COMPANY_NAME}/g" -i /etc/supervisor/conf.d/*.conf && \
