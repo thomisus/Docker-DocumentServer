@@ -1,10 +1,7 @@
 version: '2'
 services:
   onlyoffice-documentserver:
-    build:
-      context: ../../.
-      dockerfile: Dockerfile
-      target: documentserver
+    image: onlyoffice/documentserver-ee:latest
     container_name: onlyoffice-documentserver
     depends_on:
       - onlyoffice-dameng
@@ -15,6 +12,7 @@ services:
       - DB_PORT=5236
       - DB_NAME=onlyoffice
       - DB_USER=onlyoffice
+      - DB_PWD=Onlyoffice_2026
       - AMQP_URI=amqp://guest:guest@onlyoffice-rabbitmq
       # Costomize the JSON Web Token validation parameters if needed.
       #- JWT_ENABLED=false
@@ -49,7 +47,7 @@ services:
       target: damengdb
       args:
         DM8_USER: SYSDBA
-        DM8_PASS: SYSDBA001
+        DM8_PASS: SYSDBA_dm001
         DB_HOST: localhost
         DB_PORT: 5236
     environment:

@@ -1,0 +1,93 @@
+services:
+  onlyoffice-documentserver:
+    build:
+      context: .
+      target: documentserver-enterprise
+      args:
+        - PRODUCT_EDITION=-ee
+    image: onlyoffice/documentserver-ee
+    container_name: onlyoffice-documentserver
+    depends_on:
+      - onlyoffice-postgresql
+      - onlyoffice-rabbitmq
+      - onlyoffice-redis
+    environment:
+      - DB_TYPE=postgres
+      - DB_HOST=onlyoffice-postgresql
+      - DB_PORT=5432
+      - DB_NAME=onlyoffice
+      - DB_USER=onlyoffice
+      - DB_PWD=onlyoffice
+      - AMQP_URI=amqp://guest:guest@onlyoffice-rabbitmq
+      - REDIS_SERVER_HOST=onlyoffice-redis
+      # Uncomment strings below to enable the JSON Web Token validation.
+      #- JWT_ENABLED=true
+      #- JWT_SECRET=secret
+      #- JWT_HEADER=Authorization
+      #- JWT_IN_BODY=true
+    ports:
+      - '80:80'
+      - '443:443'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/info/info.json"]
+      interval: 30s
+      retries: 5
+      start_period: 60s
+      timeout: 10s
+    stdin_open: true
+    restart: always
+    stop_grace_period: 60s
+    volumes:
+       - /var/www/onlyoffice/Data
+       - /var/log/onlyoffice
+       - /var/lib/onlyoffice/documentserver/App_Data/cache/files
+       - /var/www/onlyoffice/documentserver-example/public/files
+       - /usr/share/fonts
+
+  onlyoffice-rabbitmq:
+    container_name: onlyoffice-rabbitmq
+    image: rabbitmq:3
+    restart: always
+    expose:
+      - '5672'
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 10s
+
+  onlyoffice-redis:
+    container_name: onlyoffice-redis
+    image: redis:7
+    restart: always
+    expose:
+      - '6379'
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 10s
+
+  onlyoffice-postgresql:
+    container_name: onlyoffice-postgresql
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=onlyoffice
+      - POSTGRES_USER=onlyoffice
+      - POSTGRES_PASSWORD=onlyoffice
+    restart: always
+    expose:
+      - '5432'
+    volumes:
+      - postgresql_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U onlyoffice"]
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 10s
+
+volumes:
+  postgresql_data:

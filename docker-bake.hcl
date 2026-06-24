@@ -87,11 +87,10 @@ variable "UCS_PREFIX" {
 ### ↑ Variables for UCS build ↑
 
 target "documentserver" {
-    target = "documentserver"
+    target = PRODUCT_EDITION == "" ? "documentserver-community" : "documentserver-enterprise"
     dockerfile = "${DOCKERFILE}"
     tags = [
-           "docker.io/${COMPANY_NAME}/${PREFIX_NAME}${PRODUCT_NAME}${PRODUCT_EDITION}:${TAG}",
-           equal("nightly",BUILD_CHANNEL) ? "docker.io/${COMPANY_NAME}/${PREFIX_NAME}${PRODUCT_NAME}${PRODUCT_EDITION}:latest": "",
+           "docker.io/${COMPANY_NAME}/${PREFIX_NAME}${PRODUCT_NAME}${PRODUCT_EDITION}:${TAG}"
            ]
     platforms = ["${PLATFORM}"]
     args = {
@@ -121,12 +120,12 @@ target "documentserver-stable" {
 }
 
 target "documentserver-ucs" {
-    target = "documentserver"
+    target = PRODUCT_EDITION == "" ? "documentserver-community" : "documentserver-enterprise"
     dockerfile = "${DOCKERFILE}"
     tags = [
            "docker.io/${COMPANY_NAME}/${PRODUCT_NAME}${PRODUCT_EDITION}-ucs:${TAG}"
            ]
-    platforms = ["linux/amd64", "linux/arm64"]
+    platforms = ["${PLATFORM}"]
     args = {
         "PRODUCT_EDITION": "${PRODUCT_EDITION}"
         "PRODUCT_NAME": "${PRODUCT_NAME}"

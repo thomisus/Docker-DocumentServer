@@ -14,11 +14,13 @@ If you want a production ready release, contact Ascensio System https://www.only
     - [Storing Data](#storing-data)
     - [Running ONLYOFFICE Document Server on Different Port](#running-onlyoffice-document-server-on-different-port)
     - [Running ONLYOFFICE Document Server using HTTPS](#running-onlyoffice-document-server-using-https)
+        + [Using the automatically generated Let's Encrypt SSL Certificates](#using-the-automatically-generated-lets-encrypt-ssl-certificates)
         + [Generation of Self Signed Certificates](#generation-of-self-signed-certificates)
         + [Strengthening the Server Security](#strengthening-the-server-security)
         + [Installation of the SSL Certificates](#installation-of-the-ssl-certificates)
         + [Available Configuration Parameters](#available-configuration-parameters)
-* [Installing ONLYOFFICE Document Server integrated with Community and Mail Servers](#installing-onlyoffice-document-server-integrated-with-community-and-mail-servers)
+* [Installing ONLYOFFICE Document Server using Docker Compose](#installing-onlyoffice-document-server-using-docker-compose)
+* [Installing ONLYOFFICE Document Server as a part of ONLYOFFICE Workspace](#installing-onlyoffice-document-server-as-a-part-of-onlyoffice-workspace)
 * [ONLYOFFICE Document Server ipv6 setup](#onlyoffice-document-server-ipv6-setup)
 * [Issues](#issues)
     - [Docker Issues](#docker-issues)
@@ -34,7 +36,7 @@ Starting from version 6.0, Document Server is distributed as ONLYOFFICE Docs. It
 
 ONLYOFFICE Docs can be used as a part of [ONLYOFFICE DocSpace](https://www.onlyoffice.com/docspace.aspx) and ONLYOFFICE Workspace, or with [third-party sync&share solutions](https://www.onlyoffice.com/all-connectors.aspx) (e.g. Odoo, Moodle, Nextcloud, ownCloud, Seafile, etc.) to enable collaborative editing within their interface.
 
-***Important*** Please update `docker-engine` to latest version (`20.10.21` as of writing this doc) before using it. We use `ubuntu:24.04` as base image and it older versions of docker have compatibility problems with it
+***Important*** Please update `docker-engine` to latest version (`20.10.21` as of writing this doc) before using it. We use `ubuntu:24.04` as base image and older versions of docker have compatibility problems with it
 
 ## Functionality ##
 
@@ -63,7 +65,7 @@ ONLYOFFICE Docs offer support for plugins allowing you to add specific features 
 * **CPU**: dual-core 2 GHz or higher
 * **Swap**: at least 2 GB
 * **HDD**: at least 2 GB of free space
-* **Distribution**: 64-bit Red Hat, CentOS or other compatible distributive with kernel version 3.8 or later, 64-bit Debian, Ubuntu or other compatible distributive with kernel version 3.8 or later
+* **Distribution**: 64-bit Red Hat, CentOS or other compatible distribution with kernel version 3.8 or later, 64-bit Debian, Ubuntu or other compatible distribution with kernel version 3.8 or later
 * **Docker**: version 1.9.0 or later
 
 ## Running Docker Image
@@ -81,16 +83,33 @@ All the data are stored in the specially-designated directories, **data volumes*
 * **/var/www/onlyoffice/Data** for certificates
 * **/var/lib/onlyoffice** for file cache
 * **/var/lib/postgresql** for database
+* **/var/lib/rabbitmq** for message broker
+* **/var/lib/redis** for cache
 
 To get access to your data from outside the container, you need to mount the volumes. It can be done by specifying the '-v' option in the docker run command.
 
+**Community Edition:**
+
+```bash
     sudo docker run -i -t -d -p 80:80 \
         -v /app/onlyoffice/DocumentServer/logs:/var/log/onlyoffice  \
         -v /app/onlyoffice/DocumentServer/data:/var/www/onlyoffice/Data  \
         -v /app/onlyoffice/DocumentServer/lib:/var/lib/onlyoffice \
+        onlyoffice/documentserver
+```
+
+**Enterprise/Developer Edition** — PostgreSQL, RabbitMQ and Redis are bundled in the image:
+
+```bash
+    sudo docker run -i -t -d -p 80:80 \
+        -v /app/onlyoffice/DocumentServer/logs:/var/log/onlyoffice \
+        -v /app/onlyoffice/DocumentServer/data:/var/www/onlyoffice/Data \
+        -v /app/onlyoffice/DocumentServer/lib:/var/lib/onlyoffice \
+        -v /app/onlyoffice/DocumentServer/db:/var/lib/postgresql \
         -v /app/onlyoffice/DocumentServer/rabbitmq:/var/lib/rabbitmq \
         -v /app/onlyoffice/DocumentServer/redis:/var/lib/redis \
-        -v /app/onlyoffice/DocumentServer/db:/var/lib/postgresql  onlyoffice/documentserver
+        onlyoffice/documentserver-ee  # or onlyoffice/documentserver-de for Developer Edition
+```
 
 Normally, you do not need to store container data because the container's operation does not depend on its state. Saving data will be useful:
 * For easy access to container data, such as logs
@@ -193,24 +212,8 @@ Below is the complete list of parameters that can be set using environment varia
 - **SSL_DHPARAM_PATH**: The path to the Diffie-Hellman parameter. Defaults to `/var/www/onlyoffice/Data/certs/dhparam.pem`.
 - **SSL_VERIFY_CLIENT**: Enable verification of client certificates using the `CA_CERTIFICATES_PATH` file. Defaults to `false`
 - **NODE_EXTRA_CA_CERTS**: The [NODE_EXTRA_CA_CERTS](https://nodejs.org/api/cli.html#node_extra_ca_certsfile "Node.js documentation") to extend CAs with the extra certificates for Node.js. Defaults to `/var/www/onlyoffice/Data/certs/extra-ca-certs.pem`.
-- **DB_TYPE**: The database type. Supported values are `postgres`, `mariadb`, `mysql`, `mssql` or `oracle`. Defaults to `postgres`.
-- **DB_HOST**: The IP address or the name of the host where the database server is running.
-- **DB_PORT**: The database server port number.
-- **DB_NAME**: The name of a database to use. Should be existing on container startup.
-- **DB_USER**: The new user name with superuser permissions for the database account.
-- **DB_PWD**: The password set for the database account.
-- **DB_SCHEMA**: Database schema name (optional).  
-  - **PostgreSQL** — schema for [search_path](https://www.postgresql.org/docs/current/ddl-schemas.html#DDL-SCHEMAS-PATH), default `public`.  
-  - **MSSQL** — schema to set as [DEFAULT_SCHEMA](https://learn.microsoft.com/en-us/sql/t-sql/statements/alter-user-transact-sql?view=sql-server-ver17#default_schema---schema_name--null-), default `dbo`.  
-- **AMQP_URI**: The [AMQP URI](https://www.rabbitmq.com/uri-spec.html "RabbitMQ URI Specification") to connect to message broker server.
-- **AMQP_TYPE**: The message broker type. Supported values are `rabbitmq` or `activemq`. Defaults to `rabbitmq`.
-- **REDIS_SERVER_HOST**: The IP address or the name of the host where the Redis server is running.
-- **REDIS_SERVER_PORT**:  The Redis server port number.
-- **REDIS_SERVER_USER**: The Redis server username. The username is not set by default.
-- **REDIS_SERVER_PASS**: The Redis server password. The password is not set by default.
-- **REDIS_SERVER_DB**: The Redis database index number to select. Defaults to `0`.  
 - **NGINX_WORKER_PROCESSES**: Defines the number of nginx worker processes.
-- **NGINX_WORKER_CONNECTIONS**: Sets the maximum number of simultaneous connections that can be opened by a nginx worker process.
+- **NGINX_WORKER_CONNECTIONS**: Sets the maximum number of simultaneous connections that can be opened by a nginx worker process. Defaults to the soft limit from `ulimit -n`.
 - **NGINX_ACCESS_LOG**: Defines whether access logging is enabled. Defaults to `false`.
 - **SECURE_LINK_SECRET**: Defines secret for the nginx config directive [secure_link_md5](https://nginx.org/en/docs/http/ngx_http_secure_link_module.html#secure_link_md5). Defaults to `random string`.
 - **JWT_ENABLED**: Specifies the enabling the JSON Web Token validation by the ONLYOFFICE Document Server. Defaults to `true`.
@@ -222,6 +225,8 @@ Below is the complete list of parameters that can be set using environment varia
 - **ALLOW_PRIVATE_IP_ADDRESS**: Defines if it is allowed to connect private IP address or not. Defaults to `false`.
 - **USE_UNAUTHORIZED_STORAGE**: Set to `true` if using self-signed certificates for your storage server e.g. Nextcloud. Defaults to `false`
 - **GENERATE_FONTS**: When 'true' regenerates fonts list and the fonts thumbnails etc. at each start. Defaults to `true`
+- **ADMINPANEL_ENABLED**: Enables admin panel service autostart. Defaults to `false`.
+- **EXAMPLE_ENABLED**: Enables example service autostart. Defaults to `false`.
 - **METRICS_ENABLED**: Specifies the enabling StatsD for ONLYOFFICE Document Server. Defaults to `false`.
 - **METRICS_HOST**: Defines StatsD listening host. Defaults to `localhost`.
 - **METRICS_PORT**: Defines StatsD listening port. Defaults to `8125`.
@@ -229,6 +234,28 @@ Below is the complete list of parameters that can be set using environment varia
 - **LETS_ENCRYPT_DOMAIN**: Defines the domain for Let's Encrypt certificate.
 - **LETS_ENCRYPT_MAIL**: Defines the domain administrator mail address for Let's Encrypt certificate.
 - **PLUGINS_ENABLED**: Defines whether to enable default plugins. Defaults to `true`.
+
+#### Enterprise and Developer Edition Parameters
+
+The following dependency parameters are supported only in Enterprise and Developer editions.
+
+- **DB_TYPE**: The database type. Supported values are `postgres`, `mariadb`, `mysql`, `mssql` or `oracle`. Defaults to `postgres`.
+- **DB_HOST**: The IP address or the name of the host where the database server is running.
+- **DB_PORT**: The database server port number.
+- **DB_NAME**: The name of a database to use. Should be existing on container startup.
+- **DB_USER**: The new user name with superuser permissions for the database account.
+- **DB_PWD**: The password set for the database account.
+- **DB_SCHEMA**: Database schema name (optional).
+  - **PostgreSQL** — schema for [search_path](https://www.postgresql.org/docs/current/ddl-schemas.html#DDL-SCHEMAS-PATH), default `public`.
+  - **MSSQL** — schema to set as [DEFAULT_SCHEMA](https://learn.microsoft.com/en-us/sql/t-sql/statements/alter-user-transact-sql?view=sql-server-ver17#default_schema---schema_name--null-), default `dbo`.
+- **AMQP_URI**: The [AMQP URI](https://www.rabbitmq.com/uri-spec.html "RabbitMQ URI Specification") to connect to message broker server.
+- **AMQP_TYPE**: The message broker type. Supported values are `rabbitmq` or `activemq`. Defaults to `rabbitmq`.
+- **RABBIT_CONNECTIONS**: Sets the maximum number of simultaneous connections that can be opened to the RabbitMQ message broker. Defaults to the soft limit from `ulimit -n`.
+- **REDIS_SERVER_HOST**: The IP address or the name of the host where the Redis server is running.
+- **REDIS_SERVER_PORT**: The Redis server port number.
+- **REDIS_SERVER_USER**: The Redis server username. The username is not set by default.
+- **REDIS_SERVER_PASS**: The Redis server password. The password is not set by default.
+- **REDIS_SERVER_DB**: The Redis database index number to select. Defaults to `0`.
 
 ## Installing ONLYOFFICE Document Server using Docker Compose
 
@@ -248,8 +275,22 @@ cd Docker-DocumentServer
 
 After that, assuming you have docker-compose installed, execute the following command:
 
+**Community Edition**:
+
 ```bash
 docker-compose up -d
+```
+
+**Enterprise Edition**:
+
+```bash
+docker compose -f docker-compose.enterprise.yml up -d
+```
+
+**Developer Edition**:
+
+```bash
+docker compose -f docker-compose.developer.yml up -d
 ```
 
 ## Installing ONLYOFFICE Document Server as a part of ONLYOFFICE Workspace
@@ -265,7 +306,7 @@ Then launch containers on it using the 'docker run --net onlyoffice' option:
 
 **STEP 2**: Install MySQL.
 
-Follow [these steps](#installing-mysql) to install MySQL server.
+Install MySQL server. You can find MySQL installation instructions in the [official MySQL documentation](https://dev.mysql.com/doc/).
 
 **STEP 3**: Generate JWT Secret
 
@@ -284,7 +325,6 @@ sudo docker run --net onlyoffice -i -t -d --restart=always --name onlyoffice-doc
  -v /app/onlyoffice/DocumentServer/logs:/var/log/onlyoffice  \
  -v /app/onlyoffice/DocumentServer/data:/var/www/onlyoffice/Data  \
  -v /app/onlyoffice/DocumentServer/lib:/var/lib/onlyoffice \
- -v /app/onlyoffice/DocumentServer/db:/var/lib/postgresql \
  onlyoffice/documentserver
 ```
 
@@ -356,14 +396,14 @@ wget https://download.onlyoffice.com/install/workspace-install.sh
 **STEP 2**: Install ONLYOFFICE Workspace executing the following command:
 
 ```bash
-workspace-install.sh -md yourdomain.com
+bash workspace-install.sh -md yourdomain.com
 ```
 
 Or, use [docker-compose](https://docs.docker.com/compose/install "docker-compose"). First you need to clone this [GitHub repository](https://github.com/ONLYOFFICE/Docker-CommunityServer/):
 
 ```bash
 wget https://raw.githubusercontent.com/ONLYOFFICE/Docker-CommunityServer/master/docker-compose.groups.yml
-docker-compose up -d
+docker-compose -f docker-compose.groups.yml up -d
 ```
 
 ## ONLYOFFICE Document Server ipv6 setup

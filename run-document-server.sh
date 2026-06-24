@@ -89,7 +89,7 @@ elif [[ -f ${SSL_CERTIFICATE_PATH} ]]; then
 fi
 
 if [[ -n $NODE_EXTRA_ENVIRONMENT ]]; then
-  sed -i "s|^environment=.*$|&,NODE_EXTRA_CA_CERTS=${NODE_EXTRA_ENVIRONMENT}|" /etc/supervisor/conf.d/*.conf
+  sed -i "s|^environment=.*$|&,NODE_EXTRA_CA_CERTS=${NODE_EXTRA_ENVIRONMENT}|" ${SUPERVISOR_CONF_DIR}/*.conf
 fi
 
 CA_CERTIFICATES_PATH=${CA_CERTIFICATES_PATH:-${SSL_CERTIFICATES_DIR}/ca-certificates.pem}
@@ -98,9 +98,7 @@ SSL_VERIFY_CLIENT=${SSL_VERIFY_CLIENT:-off}
 USE_UNAUTHORIZED_STORAGE=${USE_UNAUTHORIZED_STORAGE:-false}
 ONLYOFFICE_HTTPS_HSTS_ENABLED=${ONLYOFFICE_HTTPS_HSTS_ENABLED:-true}
 ONLYOFFICE_HTTPS_HSTS_MAXAGE=${ONLYOFFICE_HTTPS_HSTS_MAXAGE:-31536000}
-SYSCONF_TEMPLATES_DIR="/app/ds/setup/config"
 
-NGINX_CONFD_PATH="/etc/nginx/conf.d";
 NGINX_ONLYOFFICE_PATH="${CONF_DIR}/nginx"
 NGINX_ONLYOFFICE_CONF="${NGINX_ONLYOFFICE_PATH}/ds.conf"
 NGINX_ONLYOFFICE_EXAMPLE_PATH="${CONF_DIR}-example/nginx"
@@ -110,20 +108,20 @@ NGINX_CONFIG_PATH="/etc/nginx/nginx.conf"
 NGINX_WORKER_PROCESSES=${NGINX_WORKER_PROCESSES:-1}
 NGINX_ACCESS_LOG=${NGINX_ACCESS_LOG:-false}
 # Limiting the maximum number of simultaneous connections due to possible memory shortage
-LIMIT=$(ulimit -n); [ $LIMIT -gt 1048576 ] && LIMIT=1048576
+LIMIT=$(ulimit -n); [ "$LIMIT" = "unlimited" ] || [ "$LIMIT" -gt 1048576 ] && LIMIT=1048576
 NGINX_WORKER_CONNECTIONS=${NGINX_WORKER_CONNECTIONS:-$LIMIT}
 RABBIT_CONNECTIONS=${RABBIT_CONNECTIONS:-$LIMIT}
 
 JWT_ENABLED=${JWT_ENABLED:-true}
 
-# validate user's vars before usinig in json
+# validate user's vars before using in json
 if [ "${JWT_ENABLED}" == "true" ]; then
   JWT_ENABLED="true"
 else
   JWT_ENABLED="false"
 fi
 
-[ -z $JWT_SECRET ] && JWT_MESSAGE='JWT is enabled by default. A random secret is generated automatically. Run the command "docker exec $(sudo docker ps -q) sudo documentserver-jwt-status.sh" to get information about JWT.'
+[[ "${JWT_ENABLED}" == "true" && -z "${JWT_SECRET}" ]] && JWT_MESSAGE='JWT is enabled by default. A random secret is generated automatically. Run the command "docker exec $(sudo docker ps -q) sudo documentserver-jwt-status.sh" to get information about JWT.'
 
 JWT_SECRET=${JWT_SECRET:-$(pwgen -s 32)}
 JWT_HEADER=${JWT_HEADER:-Authorization}
@@ -135,11 +133,8 @@ ALLOW_PRIVATE_IP_ADDRESS=${ALLOW_PRIVATE_IP_ADDRESS:-false}
 
 GENERATE_FONTS=${GENERATE_FONTS:-true}
 
-if [[ ${PRODUCT_NAME}${PRODUCT_EDITION} == "documentserver" ]]; then
-  REDIS_ENABLED=false
-else
-  REDIS_ENABLED=true
-fi
+[ -n "${PRODUCT_EDITION}" ] && _is_commercial=true || _is_commercial=false
+REDIS_AVAILABLE=${_is_commercial} RABBITMQ_AVAILABLE=${_is_commercial} DB_AVAILABLE=${_is_commercial} ADMINPANEL_AVAILABLE=${_is_commercial}
 
 ONLYOFFICE_DEFAULT_CONFIG=${CONF_DIR}/local.json
 ONLYOFFICE_LOG4JS_CONFIG=${CONF_DIR}/log4js/production.json
@@ -166,57 +161,62 @@ if [ "${LETS_ENCRYPT_DOMAIN}" != "" -a "${LETS_ENCRYPT_MAIL}" != "" ]; then
 fi
 
 read_setting(){
-  deprecated_var POSTGRESQL_SERVER_HOST DB_HOST
-  deprecated_var POSTGRESQL_SERVER_PORT DB_PORT
-  deprecated_var POSTGRESQL_SERVER_DB_NAME DB_NAME
-  deprecated_var POSTGRESQL_SERVER_USER DB_USER
-  deprecated_var POSTGRESQL_SERVER_PASS DB_PWD
-  deprecated_var RABBITMQ_SERVER_URL AMQP_URI
-  deprecated_var AMQP_SERVER_URL AMQP_URI
-  deprecated_var AMQP_SERVER_TYPE AMQP_TYPE
-
   METRICS_ENABLED="${METRICS_ENABLED:-false}"
   METRICS_HOST="${METRICS_HOST:-localhost}"
   METRICS_PORT="${METRICS_PORT:-8125}"
   METRICS_PREFIX="${METRICS_PREFIX:-.ds}"
 
-  DB_HOST=${DB_HOST:-${POSTGRESQL_SERVER_HOST:-$(${JSON} services.CoAuthoring.sql.dbHost)}}
-  DB_TYPE=${DB_TYPE:-$(${JSON} services.CoAuthoring.sql.type)}
-  case $DB_TYPE in
-    "postgres")
-      DB_PORT=${DB_PORT:-"5432"}
-      ;;
-    "mariadb"|"mysql")
-      DB_PORT=${DB_PORT:-"3306"}
-      ;;
-    "dameng")
-      DB_PORT=${DB_PORT:-"5236"}
-      ;;
-    "mssql")
-      DB_PORT=${DB_PORT:-"1433"}
-      ;;
-    "oracle")
-      DB_PORT=${DB_PORT:-"1521"}
-      ;;
-    "")
-      DB_PORT=${DB_PORT:-${POSTGRESQL_SERVER_PORT:-$(${JSON} services.CoAuthoring.sql.dbPort)}}
-      ;;
-    *)
-      echo "ERROR: unknown database type"
-      exit 1
-      ;;
-  esac
-  DB_NAME=${DB_NAME:-${POSTGRESQL_SERVER_DB_NAME:-$(${JSON} services.CoAuthoring.sql.dbName)}}
-  DB_USER=${DB_USER:-${POSTGRESQL_SERVER_USER:-$(${JSON} services.CoAuthoring.sql.dbUser)}}
-  DB_PWD=${DB_PWD:-${POSTGRESQL_SERVER_PASS:-$(${JSON} services.CoAuthoring.sql.dbPass)}}
+  if [ ${DB_AVAILABLE} = "true" ]; then
+    deprecated_var POSTGRESQL_SERVER_HOST DB_HOST
+    deprecated_var POSTGRESQL_SERVER_PORT DB_PORT
+    deprecated_var POSTGRESQL_SERVER_DB_NAME DB_NAME
+    deprecated_var POSTGRESQL_SERVER_USER DB_USER
+    deprecated_var POSTGRESQL_SERVER_PASS DB_PWD
+    DB_HOST=${DB_HOST:-${POSTGRESQL_SERVER_HOST:-$(${JSON} services.CoAuthoring.sql.dbHost)}}
+    DB_TYPE=${DB_TYPE:-$(${JSON} services.CoAuthoring.sql.type)}
+    case $DB_TYPE in
+      "postgres")
+        DB_PORT=${DB_PORT:-"5432"}
+        ;;
+      "mariadb"|"mysql")
+        DB_PORT=${DB_PORT:-"3306"}
+        ;;
+      "dameng")
+        DB_PORT=${DB_PORT:-"5236"}
+        ;;
+      "mssql")
+        DB_PORT=${DB_PORT:-"1433"}
+        ;;
+      "oracle")
+        DB_PORT=${DB_PORT:-"1521"}
+        ;;
+      "")
+        DB_PORT=${DB_PORT:-${POSTGRESQL_SERVER_PORT:-$(${JSON} services.CoAuthoring.sql.dbPort)}}
+        ;;
+      *)
+        echo "ERROR: unknown database type"
+        exit 1
+        ;;
+    esac
+    DB_NAME=${DB_NAME:-${POSTGRESQL_SERVER_DB_NAME:-$(${JSON} services.CoAuthoring.sql.dbName)}}
+    DB_USER=${DB_USER:-${POSTGRESQL_SERVER_USER:-$(${JSON} services.CoAuthoring.sql.dbUser)}}
+    DB_PWD=${DB_PWD:-${DB_PASSWORD:-${POSTGRESQL_SERVER_PASS:-$(${JSON} services.CoAuthoring.sql.dbPass)}}}
+  fi
 
-  RABBITMQ_SERVER_URL=${RABBITMQ_SERVER_URL:-$(${JSON} rabbitmq.url)}
-  AMQP_URI=${AMQP_URI:-${AMQP_SERVER_URL:-${RABBITMQ_SERVER_URL}}}
-  AMQP_TYPE=${AMQP_TYPE:-${AMQP_SERVER_TYPE:-rabbitmq}}
-  parse_rabbitmq_url ${AMQP_URI}
+  if [ ${RABBITMQ_AVAILABLE} = "true" ]; then
+    deprecated_var RABBITMQ_SERVER_URL AMQP_URI
+    deprecated_var AMQP_SERVER_URL AMQP_URI
+    deprecated_var AMQP_SERVER_TYPE AMQP_TYPE
+    RABBITMQ_SERVER_URL=${RABBITMQ_SERVER_URL:-$(${JSON} rabbitmq.url)}
+    AMQP_URI=${AMQP_URI:-${AMQP_SERVER_URL:-${RABBITMQ_SERVER_URL}}}
+    AMQP_TYPE=${AMQP_TYPE:-${AMQP_SERVER_TYPE:-rabbitmq}}
+    parse_rabbitmq_url ${AMQP_URI}
+  fi
 
-  REDIS_SERVER_HOST=${REDIS_SERVER_HOST:-$(${JSON} services.CoAuthoring.redis.host)}
-  REDIS_SERVER_PORT=${REDIS_SERVER_PORT:-6379}
+  if [ ${REDIS_AVAILABLE} = "true" ]; then
+    REDIS_SERVER_HOST=${REDIS_SERVER_HOST:-$(${JSON} services.CoAuthoring.redis.host)}
+    REDIS_SERVER_PORT=${REDIS_SERVER_PORT:-6379}
+  fi
 
   DS_LOG_LEVEL=${DS_LOG_LEVEL:-$(${JSON_LOG} categories.default.level)}
 }
@@ -542,11 +542,18 @@ upgrade_mssql_tbl() {
   $MSSQL < "$APP_DIR/server/schema/mssql/createdb.sql" >/dev/null 2>&1
 }
 
-upgrade_oracle_tbl() {
-  ORACLE_SQL="sqlplus $DB_USER/$DB_PWD@//$DB_HOST:$DB_PORT/${DB_NAME}"
+run_oracle_sql_file() {
+  local sql_file="$1"
 
-  $ORACLE_SQL @$APP_DIR/server/schema/oracle/removetbl.sql >/dev/null 2>&1
-  $ORACLE_SQL @$APP_DIR/server/schema/oracle/createdb.sql >/dev/null 2>&1
+  sqlplus -s -L "$DB_USER/$DB_PWD@//$DB_HOST:$DB_PORT/${DB_NAME}" >/dev/null 2>&1 <<EOF
+@"$sql_file"
+exit
+EOF
+}
+
+upgrade_oracle_tbl() {
+  run_oracle_sql_file "$APP_DIR/server/schema/oracle/removetbl.sql"
+  run_oracle_sql_file "$APP_DIR/server/schema/oracle/createdb.sql"
 }
 
 create_postgresql_tbl() {
@@ -583,23 +590,30 @@ create_mssql_tbl() {
 }
 
 create_oracle_tbl() {
-  ORACLE_SQL="sqlplus $DB_USER/$DB_PWD@//$DB_HOST:$DB_PORT/${DB_NAME}"
-
-  $ORACLE_SQL @$APP_DIR/server/schema/oracle/createdb.sql >/dev/null 2>&1
+  run_oracle_sql_file "$APP_DIR/server/schema/oracle/createdb.sql"
 }
 
 update_welcome_page() {
   WELCOME_PAGE="${APP_DIR}-example/welcome/docker.html"
+  EXAMPLE_DISABLED_PAGE="${APP_DIR}-example/welcome/example-disabled.html"
+  if ${ADMINPANEL_AVAILABLE}; then
+    ADMIN_DISABLED_PAGE="${APP_DIR}-example/welcome/admin-disabled.html"
+    sed -Ei 's#sudo systemctl start ds-(adminpanel|example)#sudo docker exec $(sudo docker ps -q) supervisorctl start ds:\1#g' "$ADMIN_DISABLED_PAGE" "$EXAMPLE_DISABLED_PAGE"
+  else
+    sed -Ei 's#sudo systemctl start ds-example#sudo docker exec $(sudo docker ps -q) supervisorctl start ds:example#g' "$EXAMPLE_DISABLED_PAGE"
+  fi
+
+  TARGET_PAGES="$WELCOME_PAGE $EXAMPLE_DISABLED_PAGE${ADMIN_DISABLED_PAGE:+ $ADMIN_DISABLED_PAGE}"
   if [[ -e $WELCOME_PAGE ]]; then
     DOCKER_CONTAINER_ID=$(basename $(cat /proc/1/cpuset))
     (( ${#DOCKER_CONTAINER_ID} < 12 )) && DOCKER_CONTAINER_ID=$(hostname)
     if (( ${#DOCKER_CONTAINER_ID} >= 12 )); then
       if [[ -x $(command -v docker) ]]; then
         DOCKER_CONTAINER_NAME=$(docker inspect --format="{{.Name}}" $DOCKER_CONTAINER_ID)
-        sed 's/$(sudo docker ps -q)/'"${DOCKER_CONTAINER_NAME#/}"'/' -i $WELCOME_PAGE
+        sed 's/$(sudo docker ps -q)/'"${DOCKER_CONTAINER_NAME#/}"'/' -i ${TARGET_PAGES}
         JWT_MESSAGE=$(echo $JWT_MESSAGE | sed 's/$(sudo docker ps -q)/'"${DOCKER_CONTAINER_NAME#/}"'/')
       else
-        sed 's/$(sudo docker ps -q)/'"${DOCKER_CONTAINER_ID::12}"'/' -i $WELCOME_PAGE
+        sed 's/$(sudo docker ps -q)/'"${DOCKER_CONTAINER_ID::12}"'/' -i ${TARGET_PAGES}
         JWT_MESSAGE=$(echo $JWT_MESSAGE | sed 's/$(sudo docker ps -q)/'"${DOCKER_CONTAINER_ID::12}"'/')
       fi
     fi
@@ -677,10 +691,10 @@ update_release_date(){
 }
 
 # create base folders
-for i in converter docservice metrics adminpanel; do
-  mkdir -p "$DS_LOG_DIR/$i" && touch "$DS_LOG_DIR/$i"/{out,err}.log
+for SUPERVISOR_CONF in "${SUPERVISOR_CONF_DIR}"/ds-*.conf; do
+  SERVICE_NAME=$(sed "s|^${SUPERVISOR_CONF_DIR}/ds-||; s|\.conf$||" <<<"$SUPERVISOR_CONF")
+  mkdir -p "$DS_LOG_DIR/$SERVICE_NAME" && touch "$DS_LOG_DIR/$SERVICE_NAME"/{out,err}.log
 done
-
 mkdir -p "${DS_LOG_DIR}-example" && touch "${DS_LOG_DIR}-example"/{out,err}.log
 
 # create app folders
@@ -713,49 +727,47 @@ if [ ${ONLYOFFICE_DATA_CONTAINER_HOST} = "localhost" ]; then
 
   update_ds_settings
 
-  # update settings by env variables
-  if [ $DB_HOST != "localhost" ]; then
-    update_db_settings
-    waiting_for_db
-    create_db_tbl
-  else
-    # change rights for postgres directory
-    chown -R postgres:postgres ${PG_ROOT}
-    chmod -R 700 ${PG_ROOT}
+  if [ ${DB_AVAILABLE} = "true" ]; then
+    if [ $DB_HOST != "localhost" ]; then
+      update_db_settings
+      waiting_for_db
+      create_db_tbl
+    else
+      chown -R postgres:postgres ${PG_ROOT}
+      chmod -R 700 ${PG_ROOT}
 
-    # create new db if it isn't exist
-    if [ ! -d ${PGDATA} ]; then
-      create_postgresql_cluster
-      PG_NEW_CLUSTER=true
+      if [ ! -d ${PGDATA} ]; then
+        create_postgresql_cluster
+        PG_NEW_CLUSTER=true
+      fi
+      LOCAL_SERVICES+=("postgresql")
     fi
-    LOCAL_SERVICES+=("postgresql")
   fi
 
-  if [ ${AMQP_SERVER_HOST} != "localhost" ]; then
-    update_rabbitmq_setting
-  else
-    # change rights for rabbitmq directory
-    chown -R rabbitmq:rabbitmq ${RABBITMQ_DATA}
-    chmod -R go=rX,u=rwX ${RABBITMQ_DATA}
-    if [ -f ${RABBITMQ_DATA}/.erlang.cookie ]; then
-        chmod 400 ${RABBITMQ_DATA}/.erlang.cookie
+  if [ ${RABBITMQ_AVAILABLE} = "true" ]; then
+    if [ ${AMQP_SERVER_HOST} != "localhost" ]; then
+      update_rabbitmq_setting
+    else
+      chown -R rabbitmq:rabbitmq ${RABBITMQ_DATA}
+      chmod -R go=rX,u=rwX ${RABBITMQ_DATA}
+      if [ -f ${RABBITMQ_DATA}/.erlang.cookie ]; then
+          chmod 400 ${RABBITMQ_DATA}/.erlang.cookie
+      fi
+
+      sed -i '/^[[:space:]]*ulimit[[:space:]]\+-n[[:space:]]\+/d' /etc/default/rabbitmq-server
+      printf 'ulimit -n %s\n' "${RABBIT_CONNECTIONS}" >> /etc/default/rabbitmq-server
+
+      LOCAL_SERVICES+=("rabbitmq-server")
+      rm -rf /var/run/rabbitmq
     fi
-
-    echo "ulimit -n $RABBIT_CONNECTIONS" >> /etc/default/rabbitmq-server
-
-    LOCAL_SERVICES+=("rabbitmq-server")
-    # allow Rabbitmq startup after container kill
-    rm -rf /var/run/rabbitmq
   fi
 
-  if [ ${REDIS_ENABLED} = "true" ]; then
+  if [ ${REDIS_AVAILABLE} = "true" ]; then
     if [ ${REDIS_SERVER_HOST} != "localhost" ]; then
       update_redis_settings
     else
-      # change rights for redis directory
       chown -R redis:redis ${REDIS_DATA}
       chmod -R 750 ${REDIS_DATA}
-
       LOCAL_SERVICES+=("redis-server")
     fi
   fi
@@ -764,7 +776,7 @@ else
   waiting_for_datacontainer
 
   # read settings after the data container in ready state
-  # to prevent get unconfigureted data
+  # to prevent get unconfigured data
   read_setting
   
   update_welcome_page
@@ -777,32 +789,35 @@ for i in ${LOCAL_SERVICES[@]}; do
   service $i start
 done
 
-PG_DB_EXISTS=$(PGPASSWORD="$DB_PWD" psql -h ${DB_HOST} -p${DB_PORT} -U "${DB_USER}" -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}';" 2>/dev/null)
-if [ ${PG_NEW_CLUSTER} = "true" ] || [ "${PG_DB_EXISTS}" != "1" ]; then
-  create_postgresql_db
-  create_postgresql_tbl
+if [ ${DB_AVAILABLE} = "true" ] && [ "${DB_TYPE}" = "postgres" ]; then
+  PG_DB_EXISTS=$(PGPASSWORD="$DB_PWD" psql -h ${DB_HOST} -p${DB_PORT} -U "${DB_USER}" -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}';" 2>/dev/null)
+  if [ ${PG_NEW_CLUSTER} = "true" ] || [ "${PG_DB_EXISTS}" != "1" ]; then
+    create_postgresql_db
+    create_postgresql_tbl
+  fi
 fi
 
 if [ ${ONLYOFFICE_DATA_CONTAINER} != "true" ]; then
-  waiting_for_db
-  waiting_for_amqp
-  if [ ${REDIS_ENABLED} = "true" ]; then
-    waiting_for_redis
-  fi
+  [ ${DB_AVAILABLE} = "true" ] && waiting_for_db
+  [ ${RABBITMQ_AVAILABLE} = "true" ] && waiting_for_amqp
+  [ ${REDIS_AVAILABLE} = "true" ] && waiting_for_redis
 
   if [ "${IS_UPGRADE}" = "true" ]; then
-    upgrade_db_tbl
+    [ ${DB_AVAILABLE} = "true" ] && upgrade_db_tbl
     update_release_date
   fi
 
   update_nginx_settings
   
   if [ "${PLUGINS_ENABLED}" = "true" ]; then
-    echo -n Installing plugins, please wait...
-    start_process documentserver-pluginsmanager.sh -r false --update=\"${APP_DIR}/sdkjs-plugins/plugin-list-default.json\" >/dev/null
-    echo Done
+    ( documentserver-pluginsmanager.sh -r false --update="${APP_DIR}/sdkjs-plugins/plugin-list-default.json" >/dev/null; echo "[pluginsmanager] Plugins initialization finished" >/proc/1/fd/1 ) &
   fi
 
+  ${ADMINPANEL_AVAILABLE} && [ "${ADMINPANEL_ENABLED:-false}" = "true" ] && sed -i 's,autostart=false,autostart=true,' ${SUPERVISOR_CONF_DIR}/ds-adminpanel.conf
+  [ "${EXAMPLE_ENABLED:-false}" = "true" ] && sed -i 's,autostart=false,autostart=true,' ${SUPERVISOR_CONF_DIR}/ds-example.conf
+  if ${ADMINPANEL_AVAILABLE}; then
+    tail -n 0 -F "$DS_LOG_DIR/adminpanel/out.log" &
+  fi
   service supervisor start
   
   # start cron to enable log rotating
@@ -832,4 +847,4 @@ start_process documentserver-static-gzip.sh ${ONLYOFFICE_DATA_CONTAINER}
 
 echo "${JWT_MESSAGE}" 
 
-start_process bash -c "find '$DS_LOG_DIR' '$DS_LOG_DIR-example' -type f -name '*.log' | xargs tail -F"
+start_process bash -c "find '$DS_LOG_DIR' '$DS_LOG_DIR-example' -type f -name '*.log' ! -path '$DS_LOG_DIR/adminpanel/out.log' | xargs tail -F"

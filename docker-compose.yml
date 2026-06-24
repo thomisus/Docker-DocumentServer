@@ -2,18 +2,10 @@ services:
   onlyoffice-documentserver:
     build:
       context: .
-    image: onlyoffice/documentserver #[-de,-ee]
+      target: documentserver-community
+    image: onlyoffice/documentserver
     container_name: onlyoffice-documentserver
-    depends_on:
-      - onlyoffice-postgresql
-      - onlyoffice-rabbitmq
     environment:
-      - DB_TYPE=postgres
-      - DB_HOST=onlyoffice-postgresql
-      - DB_PORT=5432
-      - DB_NAME=onlyoffice
-      - DB_USER=onlyoffice
-      - AMQP_URI=amqp://guest:guest@onlyoffice-rabbitmq
       # Uncomment strings below to enable the JSON Web Token validation.
       #- JWT_ENABLED=true
       #- JWT_SECRET=secret
@@ -37,38 +29,3 @@ services:
        - /var/lib/onlyoffice/documentserver/App_Data/cache/files
        - /var/www/onlyoffice/documentserver-example/public/files
        - /usr/share/fonts
-       
-  onlyoffice-rabbitmq:
-    container_name: onlyoffice-rabbitmq
-    image: rabbitmq:3
-    restart: always
-    expose:
-      - '5672'
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "status"]
-      interval: 10s
-      retries: 3
-      start_period: 10s
-      timeout: 10s
-
-  onlyoffice-postgresql:
-    container_name: onlyoffice-postgresql
-    image: postgres:15
-    environment:
-      - POSTGRES_DB=onlyoffice
-      - POSTGRES_USER=onlyoffice
-      - POSTGRES_HOST_AUTH_METHOD=trust
-    restart: always
-    expose:
-      - '5432'
-    volumes:
-      - postgresql_data:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U onlyoffice"]
-      interval: 10s
-      retries: 3
-      start_period: 10s
-      timeout: 10s
-
-volumes:
-  postgresql_data:

@@ -1,7 +1,7 @@
-FROM onlyoffice/damengdb:8.1.2 as damengdb
+FROM onlyoffice/damengdb:8.1.3 as damengdb
 
 ARG DM8_USER="SYSDBA"
-ARG DM8_PASS="SYSDBA001"
+ARG DM8_PASS="SYSDBA_dm001"
 ARG DB_HOST="localhost"
 ARG DB_PORT="5236"
 ARG DISQL_BIN="/opt/dmdbms/bin"
@@ -15,7 +15,7 @@ function wait_dm_ready() {
   cd /opt/dmdbms/bin
   for i in `seq 1  10`; do
     echo `./disql /nolog <<EOF
-CONN SYSDBA/SYSDBA001@localhost
+CONN SYSDBA/SYSDBA_dm001@localhost
 exit
 EOF` | grep  "connection failure" > /dev/null 2>&1
     if [ $? -eq 0 ]; then
@@ -41,14 +41,20 @@ GRANT ALL PRIVILEGES ON sysdba.TASK_RESULT TO onlyoffice;
 
 EOF
 
+ADD https://raw.githubusercontent.com/ONLYOFFICE/server/master/schema/dameng/createdb.sql /schema/dameng/createdb.sql
+
+ARG OO_DB_USER="onlyoffice"
+ARG OO_DB_PASS="Onlyoffice_2026"
+
 RUN   bash /opt/startup.sh > /dev/null 2>&1 \
    &  mkdir -p /schema/damengdb \
-   && apt update -y ; apt install wget -y \
-   && wget https://raw.githubusercontent.com/ONLYOFFICE/server/master/schema/dameng/createdb.sql -P /schema/dameng/ \
+   && export DEBIAN_FRONTEND=noninteractive \
+   && apt-get update \
+   && rm -rf /var/lib/apt/lists/* \
    && bash ./wait_dm_ready.sh \
    && cd ${DISQL_BIN} \
    && ./disql $DM8_USER/$DM8_PASS@$DB_HOST:$DB_PORT -e \
-      "create user "onlyoffice" identified by "onlyoffice" password_policy 0;" \
+      "create user \"${OO_DB_USER}\" identified by \"${OO_DB_PASS}\";" \
    && ./disql $DM8_USER/$DM8_PASS@$DB_HOST:$DB_PORT -e \
       "GRANT SELECT ON DBA_TAB_COLUMNS TO onlyoffice;" \
    && echo "EXIT" | tee -a /schema/dameng/createdb.sql \
